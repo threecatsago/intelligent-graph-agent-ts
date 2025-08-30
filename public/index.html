@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Graph Database Agent System</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Intelligent Graph Database Agent System</h1>
+            <p>Advanced knowledge graph-based intelligent Q&A and document search system</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Left: Chat and Search -->
+            <div class="left-panel">
+                <!-- Intelligent Chat -->
+                <div class="section">
+                    <h2>💬 Intelligent Chat</h2>
+                    
+                    <!-- Gemini Status Display -->
+                    <div class="gemini-status" id="geminiStatus">
+                        <span class="status-indicator loading">⏳ Checking Gemini status...</span>
+                    </div>
+                    
+                    <div class="chat-area" id="chatArea">
+                        <div class="message assistant-message">
+                            Hello! I'm your intelligent assistant, ready to help you search and answer questions about stored documents.
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Options -->
+                    <div class="chat-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="streamMode" checked>
+                            <span class="checkmark"></span>
+                            Enable streaming responses (real-time AI thinking process)
+                        </label>
+                    </div>
+                    
+                    <div class="input-group">
+                        <input type="text" id="messageInput" placeholder="Enter your question..." style="flex: 1;">
+                        <button onclick="sendMessage()">Send</button>
+                        <button onclick="clearSession()" style="background: #6c757d;">Clear Session</button>
+                    </div>
+                    <input type="hidden" id="sessionId" value="default-session">
+                </div>
+                
+                <!-- Document Search -->
+                <div class="section">
+                    <h2>🔍 Document Search</h2>
+                    <div class="input-group">
+                        <input type="text" id="searchInput" placeholder="Enter search keywords..." style="flex: 1;">
+                        <select id="searchType">
+                            <option value="chunks">Text Chunk Search</option>
+                            <option value="documents">Document Search</option>
+                            <option value="hybrid">Hybrid Search</option>
+                        </select>
+                        <button onclick="performSearch()">Search</button>
+                    </div>
+                    <div class="search-results" id="searchResults">
+                        <div style="color: #6c757d; text-align: center; padding: 20px;">
+                            Search results will appear here
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right: System Status and Document Management -->
+            <div class="right-panel">
+                <!-- System Status -->
+                <div class="section">
+                    <h2>📊 System Status</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number">0</div>
+                            <div class="stat-label">Total Nodes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">0</div>
+                            <div class="stat-label">Total Relationships</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">0</div>
+                            <div class="stat-label">Documents</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">0</div>
+                            <div class="stat-label">Text Chunks</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Document Management -->
+                <div class="section">
+                    <h2>📁 Document Management</h2>
+                    
+                    <!-- File Upload Area -->
+                    <div class="upload-section">
+                        <h3>📤 File Upload</h3>
+                        <div class="file-upload">
+                            <input type="file" id="fileInput" multiple accept=".txt,.md,.json">
+                            <label for="fileInput" class="upload-label">
+                                📁 Click to select files or drag files here<br>
+                                <small>Supports .txt, .md, .json formats, max 10MB per file</small>
+                            </label>
+                        </div>
+                        <div class="input-group">
+                            <button onclick="uploadFiles()" style="flex: 1;">Upload & Process Files</button>
+                            <button onclick="clearUploadedFiles()" style="background: #dc3545;">Clear Uploaded Files</button>
+                        </div>
+                        
+                        <!-- Uploaded Files List -->
+                        <div class="uploaded-files" id="uploadedFiles">
+                            <h4>Uploaded Files</h4>
+                            <div class="files-list" id="filesList"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Directory Build Area -->
+                    <div class="directory-section">
+                        <h3>📂 Directory Build</h3>
+                        <div class="input-group">
+                            <input type="text" id="directoryPath" placeholder="Enter document directory path" style="flex: 1;">
+                            <button onclick="buildGraph()">Build Graph</button>
+                        </div>
+                    </div>
+                    
+                    <div id="statusArea"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/js/app.js"></script>
+</body>
+</html> 
