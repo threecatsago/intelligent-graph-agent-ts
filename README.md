@@ -69,7 +69,14 @@ Evolved from the Initial Database Structure
 
 ![German Query Search Failure](assets/german-query-failure.png)
 
-This limitation drove us to the next phase: integrating a vector index system to achieve true semantic understanding.
+
+---
+
+In the first phase of the project, we successfully built a complete, end-to-end system prototype, which laid a solid foundation for all subsequent feature iterations.
+
+The key achievement of this version was the construction of the system's core skeleton, including a modular backend architecture, a full REST API layer using Express.js, and seamless integration with the Neo4j graph database. Functionally, the system implemented automated document chunking and processing, successfully creating a foundational `Document -> Chunk` graph structure within the database. Furthermore, a keyword-based search function was deployed and operational, validating the viability of the entire data processing and query pipeline.
+
+This initial version not only proved the soundness of the overall architecture but, more importantly, its practical implementation clearly exposed the limitations of a text-only search. This provided a clear objective and the necessary motivation for Phase 2: introducing vector indexing to achieve true semantic understanding.
 
 ### Phase 2: Integrating Vector Index for Intelligent Search
 
@@ -126,7 +133,7 @@ Now, the full term exists in both chunks, making search and semantic analysis fa
 
 The current system is a functional RAG with a graph structure. The next step is to introduce an LLM for entity and relationship extraction, completing the evolution into a true **GraphRAG**.
 
-1.  **LLM-Powered Structured Extraction**: Utilize a Large Language Model to automatically identify predefined entities and relationships from text chunks and store them structurally in Neo4j.
+1.  **LLM-Powered Structured Extraction**: Utilize a Large Language Model to automatically identify predefined entities and relationships from text chunks and store them structurally in Neo4j.Customize by ours needs, like a Client Company Information:
     -   **Entity Types**: `person`, `technology`, `mission`, `organization`, `location`, etc.
     -   **Relationship Types**: `workmate`, `leaded by`, `operate`, `contact`, etc.
 
@@ -139,6 +146,16 @@ The current system is a functional RAG with a graph structure. The next step is 
     6.  **Vector Indexing** → Create vector representations for entities and relationships to support deeper graph queries.
     7.  **Community Detection** → Use graph algorithms (like GDS) to identify entity communities and generate summaries.
     8.  **Caching & Optimization** → Cache LLM results and use parallel processing to accelerate the workflow.
+
+
+### Future Vision: A Collaborative AI Agent Ecosystem
+
+This project has built more than just a powerful knowledge base; it is the launching point for a future where advanced AI Agents work in concert.
+
+We envision a team of AI agents, directed by a human expert:
+*   A **"Data Scout"** agent, responsible for autonomously mining and analyzing information to extract core insights based on the expert's needs.
+*   An **"Execution Assistant"** agent, which takes these insights and handles downstream tasks, like drafting reports or sending project alerts.
+- Ultimately, experts will be able to direct this AI team, automating tedious data and execution workflows. This frees them to focus on the highest-value strategic decisions, truly empowering and multiplying the impact of professional knowledge work.
 
 ---
 
