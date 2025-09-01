@@ -53,16 +53,30 @@
                     <h2>🔍 Document Search</h2>
                     <div class="input-group">
                         <input type="text" id="searchInput" placeholder="Enter search keywords..." style="flex: 1;">
-                        <select id="searchType">
-                            <option value="chunks">Text Chunk Search</option>
-                            <option value="documents">Document Search</option>
-                            <option value="hybrid">Hybrid Search</option>
+                        <select id="searchStrategy">
+                            <option value="vector-only">Loading strategies...</option>
                         </select>
                         <button onclick="performSearch()">Search</button>
                     </div>
+                    
                     <div class="search-results" id="searchResults">
                         <div style="color: #6c757d; text-align: center; padding: 20px;">
                             Search results will appear here
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Smart QA -->
+                <div class="section">
+                    <h2>🤖 Smart QA</h2>
+                    <div class="input-group">
+                        <input type="text" id="questionInput" placeholder="Ask a question..." style="flex: 1;">
+                        <button onclick="performSmartQA()">Ask AI</button>
+                    </div>
+                    
+                    <div class="qa-results" id="qaResults">
+                        <div style="color: #6c757d; text-align: center; padding: 20px;">
+                            AI answers will appear here
                         </div>
                     </div>
                 </div>

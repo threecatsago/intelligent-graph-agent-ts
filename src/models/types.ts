@@ -32,6 +32,7 @@ export interface ChunkNode extends BaseNode {
     content_offset: number;  // Offset of chunk in document
     fileName: string;        // File name
     tokens: number;          // Token count
+    embedding?: number[];    // Vector embedding for similarity search
   };
 }
 

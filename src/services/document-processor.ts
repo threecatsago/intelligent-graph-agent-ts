@@ -1,18 +1,42 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
-import { config } from '../config/settings';
 import { ProcessedDocument, ChunkNode } from '../models/types';
+import { EnhancedTextChunker } from './enhanced-text-chunker';
+import { embeddingManager } from './embedding-manager';
+import { getDocumentProcessingConfig } from '../config/unified-config';
 
 export class DocumentProcessor {
+  private static instance: DocumentProcessor | null = null;
   private chunkSize: number;
   private overlap: number;
   private maxFileSize: number;
+  private textChunker: EnhancedTextChunker;
 
-  constructor() {
-    this.chunkSize = config.document.chunkSize;
-    this.overlap = config.document.overlap;
-    this.maxFileSize = config.document.maxFileSize;
+  private constructor() {
+    const documentConfig = getDocumentProcessingConfig();
+    
+    this.chunkSize = documentConfig.chunkSize;
+    this.overlap = documentConfig.overlap;
+    this.maxFileSize = documentConfig.maxFileSize;
+    
+    // Initialize enhanced text chunker
+    this.textChunker = new EnhancedTextChunker({
+      chunkSize: this.chunkSize,
+      overlap: this.overlap,
+      maxTextLength: documentConfig.maxTextLength,
+      preserveSentences: documentConfig.preserveSentences,
+      multilingualSupport: documentConfig.multilingualSupport,
+    });
+
+    console.log('📄 DocumentProcessor initialized with unified configuration');
+  }
+
+  public static getInstance(): DocumentProcessor {
+    if (!DocumentProcessor.instance) {
+      DocumentProcessor.instance = new DocumentProcessor();
+    }
+    return DocumentProcessor.instance;
   }
 
   /**
@@ -84,7 +108,8 @@ export class DocumentProcessor {
       const content = await this.readFile(filePath);
       if (!content) return null;
 
-      const chunks = this.createChunks(content, path.basename(filePath));
+      // Create chunks using enhanced text chunker
+      const chunks = await this.createChunks(content, path.basename(filePath));
       
       return {
         filename: path.basename(filePath),
@@ -106,23 +131,9 @@ export class DocumentProcessor {
    * Read file content
    */
   private async readFile(filePath: string): Promise<string | null> {
-    const ext = path.extname(filePath).toLowerCase();
-    
     try {
-      switch (ext) {
-        case '.txt':
-        case '.md':
-          return await fs.readFile(filePath, 'utf-8');
-        
-        case '.json':
-          const jsonContent = await fs.readFile(filePath, 'utf-8');
-          const parsed = JSON.parse(jsonContent);
-          return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
-        
-        default:
-          console.warn(`⚠️ Unsupported file type: ${ext}`);
-          return null;
-      }
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content.trim();
     } catch (error) {
       console.error(`❌ Failed to read file: ${filePath}`, error);
       return null;
@@ -130,34 +141,42 @@ export class DocumentProcessor {
   }
 
   /**
-   * Create text chunks
+   * Create text chunks using enhanced text chunker
    */
-  private createChunks(content: string, filename: string): ChunkNode[] {
+  private async createChunks(content: string, filename: string): Promise<ChunkNode[]> {
     const chunks: ChunkNode[] = [];
-    const words = content.split(/\s+/);
     
-    let startIndex = 0;
-    let chunkIndex = 0;
-    let contentOffset = 0; // Content offset
-    const maxIterations = Math.ceil(words.length / (this.chunkSize - this.overlap)) + 10; // Prevent infinite loop
-    let iterationCount = 0;
+    // Split text using enhanced text chunker
+    const textChunks = this.textChunker.chunkText(content);
+    
+    console.log(`📝 Processing file: ${filename}`);
+    console.log(`   📊 Text stats:`, this.textChunker.getTextStats(content));
+    console.log(`   🔪 Created ${textChunks.length} chunks`);
 
-    while (startIndex < words.length && iterationCount < maxIterations) {
-      const endIndex = Math.min(startIndex + this.chunkSize, words.length);
+    // Convert to ChunkNode format and generate embeddings
+    for (let chunkIndex = 0; chunkIndex < textChunks.length; chunkIndex++) {
+      const chunkText = textChunks[chunkIndex];
       
-      // Prevent overlap calculation errors
-      if (endIndex <= startIndex) {
-        console.warn(`⚠️ Detected possible infinite loop, stopping chunking: startIndex=${startIndex}, endIndex=${endIndex}`);
-        break;
-      }
-      
-      const chunkWords = words.slice(startIndex, endIndex);
-      const chunkText = chunkWords.join(' ');
-
       if (chunkText.trim()) {
-        const position = chunkIndex + 1; // Position starts from 1
-        const length = chunkText.length; // Chunk content length
-        const chunkId = this.generateHash(chunkText); // Use content hash as ID
+        const chunkId = this.generateHash(chunkText);
+        const words = chunkText.split(/\s+/).filter(word => word.trim());
+        
+        // Generate embedding for chunk
+        let embedding: number[] | undefined;
+        try {
+          console.log(`   🔄 Generating embedding for chunk ${chunkIndex + 1}/${textChunks.length}`);
+          embedding = await embeddingManager.embedQuery(chunkText);
+          console.log(`   ✅ Generated embedding (${embedding.length} dimensions) for chunk ${chunkIndex + 1}`);
+          
+          // Validate embedding
+          if (!embedding || embedding.length === 0) {
+            console.warn(`   ⚠️ Empty embedding generated for chunk ${chunkIndex + 1}`);
+            embedding = undefined;
+          }
+        } catch (error) {
+          console.warn(`   ⚠️ Failed to generate embedding for chunk ${chunkIndex + 1}:`, error);
+          embedding = undefined;
+        }
         
         const chunk: ChunkNode = {
           id: chunkId,
@@ -165,43 +184,50 @@ export class DocumentProcessor {
           properties: {
             id: chunkId,
             text: chunkText,
-            n_tokens: chunkWords.length,
+            n_tokens: words.length,
             chunk_index: chunkIndex,
             document_id: this.generateDocumentId(filename),
             // Additional metadata fields
-            position: position,
-            length: length,
-            content_offset: contentOffset,
+            position: chunkIndex + 1,
+            length: chunkText.length,
+            content_offset: this.calculateContentOffset(textChunks, chunkIndex),
             fileName: filename,
-            tokens: chunkWords.length,
+            tokens: words.length,
+            embedding: embedding, // Add embedding field
           },
         };
 
         chunks.push(chunk);
-        chunkIndex++;
-        
-        // Update content offset (prepare for next chunk)
-        contentOffset += length;
       }
-
-      // Calculate next chunk start position, considering overlap
-      const nextStartIndex = endIndex - this.overlap;
-      
-      // Prevent issues from excessive overlap
-      if (nextStartIndex <= startIndex) {
-        startIndex = endIndex; // Jump directly to next position
-      } else {
-        startIndex = nextStartIndex;
-      }
-      
-      iterationCount++;
     }
 
-    if (iterationCount >= maxIterations) {
-      console.warn(`⚠️ Reached maximum iterations, stopping chunking: ${filename}`);
-    }
-
+    console.log(`   ✅ Successfully created ${chunks.length} chunk nodes with embeddings`);
     return chunks;
+  }
+
+  /**
+   * Calculate content offset for a chunk
+   */
+  private calculateContentOffset(textChunks: string[], currentIndex: number): number {
+    let offset = 0;
+    for (let i = 0; i < currentIndex; i++) {
+      offset += textChunks[i].length;
+    }
+    return offset;
+  }
+
+  /**
+   * Generate document ID
+   */
+  private generateDocumentId(filename: string): string {
+    return this.generateHash(filename);
+  }
+
+  /**
+   * Generate hash for content
+   */
+  private generateHash(content: string): string {
+    return crypto.createHash('md5').update(content).digest('hex');
   }
 
   /**
@@ -228,28 +254,6 @@ export class DocumentProcessor {
       console.error(`❌ Failed to read directory: ${dirPath}`, error);
       return [];
     }
-  }
-
-  /**
-   * Generate document ID
-   */
-  private generateDocumentId(filename: string): string {
-    return crypto.createHash('md5').update(filename).digest('hex');
-  }
-
-  /**
-   * Generate chunk ID
-   */
-  private generateChunkId(filename: string, chunkIndex: number): string {
-    const content = `${filename}_${chunkIndex}`;
-    return crypto.createHash('md5').update(content).digest('hex');
-  }
-
-  /**
-   * Generate content hash
-   */
-  private generateHash(content: string): string {
-    return crypto.createHash('md5').update(content).digest('hex');
   }
 }
 

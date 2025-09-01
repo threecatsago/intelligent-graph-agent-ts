@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
+import GraphService from '../../services/graph-service';
 import { neo4jManager } from '../../database/neo4j';
-import KnowledgeGraphBuilder from '../../services/knowledge-graph-builder';
 
 const router = Router();
-const graphBuilder = new KnowledgeGraphBuilder();
+const graphService = new GraphService();
 
 // Build knowledge graph
 router.post('/build', async (req: Request, res: Response) => {
@@ -20,13 +20,13 @@ router.post('/build', async (req: Request, res: Response) => {
     console.log(`🏗️ Starting knowledge graph construction: ${inputPath}`);
     
     if (rebuild) {
-      await graphBuilder.rebuildKnowledgeGraph(inputPath);
+      await graphService.rebuildKnowledgeGraph(inputPath);
     } else {
-      await graphBuilder.buildKnowledgeGraph(inputPath);
+      await graphService.buildKnowledgeGraph(inputPath);
     }
 
     // Validate build result
-    const isValid = await graphBuilder.validateBuild();
+    const isValid = await graphService.validateBuild();
     
     res.json({
       success: true,
@@ -90,7 +90,8 @@ router.get('/structure', async (req: Request, res: Response) => {
 
     // Get document and chunk relationships
     const structure = await neo4jManager.executeQuery(`
-      MATCH (d:__Document__)<-[:PART_OF]-(c:__Chunk__)
+      MATCH (d:__Document__)
+      OPTIONAL MATCH (d)<-[:PART_OF]-(c:__Chunk__)
       RETURN d.title as document, d.filename as filename, 
              collect(c.chunk_index) as chunkIndices,
              count(c) as chunkCount
@@ -191,7 +192,7 @@ router.post('/test-document-processing', async (req: Request, res: Response) => 
     console.log(`📄 Testing document processing: ${inputPath}`);
     
     const DocumentProcessor = require('../../services/document-processor').default;
-    const processor = new DocumentProcessor();
+    const processor = DocumentProcessor.getInstance();
     
     const documents = await processor.processDirectory(inputPath);
     
@@ -276,7 +277,7 @@ router.post('/test-write-document', async (req: Request, res: Response) => {
     const DocumentProcessor = require('../../services/document-processor').default;
     const GraphWriter = require('../../services/graph-writer').default;
     
-    const processor = new DocumentProcessor();
+    const processor = DocumentProcessor.getInstance();
     const writer = new GraphWriter();
     
     // Process only first document
@@ -310,5 +311,7 @@ router.post('/test-write-document', async (req: Request, res: Response) => {
     });
   }
 });
+
+
 
 export { router as graphRouter }; 

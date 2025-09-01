@@ -1,15 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-// Gemini configuration
-export const GEMINI_CONFIG = {
-  apiKey: process.env.GOOGLE_GEMINI_API_KEY || '',
-  model: 'gemini-2.5-flash', 
-  temperature: 0.7,
-  maxOutputTokens: 2048,
-};
+import { getGeminiConfig } from './unified-config';
 
 // Initialize Gemini client
-export const geminiClient = new GoogleGenerativeAI(GEMINI_CONFIG.apiKey);
+export const geminiClient = new GoogleGenerativeAI(getGeminiConfig().apiKey);
 
 // Prompt template
 export const ANSWER_GENERATION_PROMPT = `

@@ -1,13 +1,14 @@
 import BaseAgent from './base-agent';
 import { AgentSession } from '../models/types';
-import GeminiService from '../services/gemini-service';
+import { serviceManager } from '../services/service-manager';
 
 export class SimpleAgent extends BaseAgent {
-  private geminiService: GeminiService;
+  private geminiService: any;
 
   constructor() {
     super();
-    this.geminiService = new GeminiService();
+    // Use ServiceManager to get GeminiService instance
+    this.geminiService = serviceManager.getGeminiService();
   }
 
   /**
@@ -98,6 +99,34 @@ export class SimpleAgent extends BaseAgent {
   }
 
   /**
+   * Process query with existing search results (avoid duplicate search)
+   */
+  async processQueryWithResults(sessionId: string, message: string, existingResults?: any[]): Promise<string> {
+    try {
+      // Get or create session
+      const session = this.getOrCreateSession(sessionId);
+      
+      // Add user message
+      this.addMessage(session, 'user', message);
+      
+      // Use existing results if available, otherwise perform smart search
+      const searchResults = await this.smartSearchWithResults(message, existingResults);
+      
+      // Generate answer
+      const answer = await this.generateAnswer(message, searchResults, session);
+      
+      // Add assistant message
+      this.addMessage(session, 'assistant', answer);
+      
+      return answer;
+      
+    } catch (error) {
+      console.error('❌ Query processing failed:', error);
+      return 'Sorry, an error occurred while processing your query. Please try again later.';
+    }
+  }
+
+  /**
    * Fallback answer generation method (when Gemini is unavailable)
    */
   private generateFallbackAnswer(query: string, searchResults: any[]): string {
@@ -131,7 +160,7 @@ export class SimpleAgent extends BaseAgent {
         limit: 3,
       };
       
-      const results = await this.localSearch.searchDocuments(searchQuery);
+      const results = await this.unifiedSearch.searchDocuments(searchQuery);
       
       if (results.length === 0) {
         return ['Please try using more specific keywords', 'Check if spelling is correct'];

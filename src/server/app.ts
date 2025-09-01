@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { config } from '../config/settings';
+import { getAppConfig } from '../config/unified-config';
 import chatRouter from './routes/chat';
-import { searchRouter } from './routes/search';
+import unifiedSearchRouter from './routes/unified-search';
 import { graphRouter } from './routes/graph';
 import { uploadRouter } from './routes/upload';
 
@@ -57,7 +57,7 @@ export class App {
 
     // API routes
     this.app.use('/api/chat', chatRouter);
-    this.app.use('/api/search', searchRouter);
+    this.app.use('/api/search', unifiedSearchRouter);
     this.app.use('/api/graph', graphRouter);
     this.app.use('/api/upload', uploadRouter);
 
@@ -89,11 +89,12 @@ export class App {
   }
 
   public listen(): void {
-    this.app.listen(config.app.port, () => {
+    const config = getAppConfig();
+    this.app.listen(config.port, () => {
       console.log(`🚀 Server started successfully!`);
-      console.log(`📍 Address: http://localhost:${config.app.port}`);
-      console.log(`🌍 Environment: ${config.app.nodeEnv}`);
-      console.log(`📊 Health check: http://localhost:${config.app.port}/health`);
+      console.log(`📍 Address: http://localhost:${config.port}`);
+      console.log(`🌍 Environment: ${config.nodeEnv}`);
+      console.log(`📊 Health check: http://localhost:${config.port}/health`);
     });
   }
 }

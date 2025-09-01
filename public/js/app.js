@@ -181,31 +181,65 @@ function updateGeminiStatus(status) {
     }
 }
 
-// Perform search
+// Perform unified search
 async function performSearch() {
     const searchInput = document.getElementById('searchInput');
-    const searchType = document.getElementById('searchType').value;
+    const searchStrategy = document.getElementById('searchStrategy').value;
     const query = searchInput.value.trim();
     
     if (!query) return;
     
     try {
-        const response = await fetch(`${API_BASE}/search/${searchType}`, {
+        const endpoint = `${API_BASE}/search/search`;
+        const requestBody = { 
+            query, 
+            limit: 10,
+            strategy: searchStrategy
+        };
+        
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, limit: 10 })
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();
         displaySearchResults(data);
+        
+        // Display search strategy information
+        const strategyInfo = getStrategyInfo(searchStrategy);
+        showStatus(`Search completed using ${strategyInfo.name} strategy`, 'success');
+        
     } catch (error) {
         showStatus('Search failed, please try again later.', 'error');
+        console.error('Search error:', error);
     }
+}
+
+// Get strategy information
+function getStrategyInfo(strategyName) {
+    const strategies = {
+        'vector-only': { name: 'Vector Only', description: 'Only use vector search, suitable for semantic queries' },
+        'hybrid-vector-heavy': { name: 'Hybrid Vector Heavy', description: 'Hybrid search with vector search as primary, suitable for complex semantic queries' },
+        'vector-with-context': { name: 'Vector with Context', description: 'Vector search + context expansion, provides more complete answer context' }
+    };
+    return strategies[strategyName] || { name: 'Unknown', description: 'Unknown strategy' };
 }
 
 // Display search results
 function displaySearchResults(data) {
     const resultsArea = document.getElementById('searchResults');
+    
+    // Add debug information
+    console.log('🔍 Received search data:', data);
+    console.log('📊 Data structure check:', {
+        success: data.success,
+        hasData: !!data.data,
+        hasResults: !!(data.data && data.data.results),
+        resultsLength: data.data?.results?.length || 0,
+        resultsType: typeof data.data?.results,
+        firstResult: data.data?.results?.[0]
+    });
     
     if (!data.success || data.data.results.length === 0) {
         resultsArea.innerHTML = '<div class="result-item">No relevant results found</div>';
@@ -217,16 +251,96 @@ function displaySearchResults(data) {
         const content = result.content.length > 100 ? 
             result.content.substring(0, 100) + '...' : result.content;
         
+        // Display search strategy information
+        const searchMethod = result.metadata?.searchMethod || 'vector';
+        const methodBadge = `<span class="method-badge ${searchMethod}">${searchMethod}</span>`;
+        
         html += `
             <div class="result-item">
-                <div class="result-title">Result ${index + 1} (Relevance: ${result.score})</div>
+                <div class="result-title">
+                    Result ${index + 1} (Relevance: ${(result.score * 100).toFixed(1)}%) ${methodBadge}
+                </div>
                 <div class="result-content">${content}</div>
                 <small style="color: #6c757d;">Source: ${result.source}</small>
+                ${result.metadata?.chunkId ? `<small style="color: #6c757d;">Chunk ID: ${result.metadata.chunkId}</small>` : ''}
             </div>
         `;
     });
     
     resultsArea.innerHTML = html;
+}
+
+// Perform smart QA using unified search
+async function performSmartQA() {
+    const questionInput = document.getElementById('questionInput');
+    const question = questionInput.value.trim();
+    
+    if (!question) return;
+    
+    try {
+        // Show loading status
+        const qaResultsArea = document.getElementById('qaResults');
+        qaResultsArea.innerHTML = '<div class="loading">🤖 AI is thinking...</div>';
+        
+        const endpoint = `${API_BASE}/search/qa`;
+        const requestBody = { 
+            question,
+            options: {
+                topK: 5,
+                threshold: 0.6
+            }
+        };
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const data = await response.json();
+        displayQAResults(data);
+        
+        showStatus('Smart QA completed successfully!', 'success');
+        
+    } catch (error) {
+        showStatus('Smart QA failed, please try again later.', 'error');
+        console.error('Smart QA error:', error);
+        document.getElementById('qaResults').innerHTML = '<div class="error">❌ Smart QA failed, please try again</div>';
+    }
+}
+
+// Display QA results
+function displayQAResults(data) {
+    const qaResultsArea = document.getElementById('qaResults');
+    
+    if (!data.success) {
+        qaResultsArea.innerHTML = '<div class="error">❌ QA failed</div>';
+        return;
+    }
+    
+    const result = data.data;
+    let html = `
+        <div class="qa-result">
+            <div class="qa-answer">
+                <h4>🤖 AI Answer</h4>
+                <div class="answer-content">${result.answer}</div>
+                <div class="confidence">Confidence: ${(result.confidence * 100).toFixed(1)}%</div>
+            </div>
+            
+            <div class="qa-sources">
+                <h4>📚 Reference Sources (${result.searchResults.length})</h4>
+                ${result.searchResults.map((source, index) => `
+                    <div class="source-item">
+                        <div class="source-title">Source ${index + 1}: ${source.source}</div>
+                        <div class="source-content">${source.content.substring(0, 150)}...</div>
+                        <small style="color: #6c757d;">Relevance: ${(source.score * 100).toFixed(1)}%</small>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    qaResultsArea.innerHTML = html;
 }
 
 // Refresh statistics
@@ -489,10 +603,37 @@ function initializeEventListeners() {
     });
 }
 
-// Initialize on page load
-window.addEventListener('load', () => {
-    initializeEventListeners();
+// Initialize after page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize search options interaction
+    initializeSearchOptions();
+    
+    // Refresh statistics
     refreshStats();
-    refreshUploadedFiles();
-    checkGeminiStatus(); // Check Gemini status
-}); 
+    
+    // Check Gemini status
+    checkGeminiStatus();
+});
+
+// Initialize search strategies
+function initializeSearchOptions() {
+    // Get available search strategies
+    fetch(`${API_BASE}/search/strategies`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const strategySelect = document.getElementById('searchStrategy');
+                strategySelect.innerHTML = '';
+                
+                data.data.forEach(strategy => {
+                    const option = document.createElement('option');
+                    option.value = strategy.name;
+                    option.textContent = `${strategy.name}: ${strategy.description}`;
+                    strategySelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load search strategies:', error);
+        });
+} 

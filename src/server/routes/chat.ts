@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { SimpleAgent } from '../../agents/simple-agent';
+import { UnifiedSearch } from '../../search/unified-search';
+import { serviceManager } from '../../services/service-manager';
 
 const router = Router();
 const agent = new SimpleAgent();
+const unifiedSearch = UnifiedSearch.getInstance();
 
 // Send message
 router.post('/message', async (req: Request, res: Response) => {
@@ -23,11 +26,16 @@ router.post('/message', async (req: Request, res: Response) => {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Transfer-Encoding', 'chunked');
       
-      const searchResults = await agent['smartSearch'](message);
-      const session = agent['getOrCreateSession'](sessionId);
+      // Use UnifiedSearch to perform a search once, avoiding duplicate searches
+      const searchResults = await unifiedSearch.search({
+        query: message,
+        limit: 5
+      }, { strategy: 'hybrid-vector-heavy' });
+      
+      const session = (serviceManager.getAgent() as any).getOrCreateSession(sessionId);
       
       try {
-        const streamGenerator = await agent.generateStreamAnswer(message, searchResults, session);
+        const streamGenerator = await serviceManager.getAgent().generateStreamAnswer(message, searchResults, session);
         
         for await (const chunk of streamGenerator) {
           res.write(chunk);
@@ -40,8 +48,13 @@ router.post('/message', async (req: Request, res: Response) => {
         res.end();
       }
     } else {
-      // Regular answer
-      const answer = await agent.processQuery(sessionId, message);
+      // Regular answer - using UnifiedSearch results
+      const searchResults = await unifiedSearch.search({
+        query: message,
+        limit: 5
+      }, { strategy: 'hybrid-vector-heavy' });
+      
+      const answer = await serviceManager.getAgent().processQueryWithResults(sessionId, message, searchResults);
       
       res.json({
         success: true,
@@ -65,7 +78,7 @@ router.post('/message', async (req: Request, res: Response) => {
 router.get('/history/:sessionId', (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
-    const history = agent.getSessionHistory(sessionId);
+    const history = serviceManager.getAgent().getSessionHistory(sessionId);
     
     res.json({
       success: true,
@@ -88,7 +101,7 @@ router.get('/history/:sessionId', (req: Request, res: Response) => {
 router.delete('/session/:sessionId', (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
-    const success = agent.clearSession(sessionId);
+    const success = serviceManager.getAgent().clearSession(sessionId);
     
     res.json({
       success: true,
@@ -119,7 +132,7 @@ router.post('/suggestions', async (req: Request, res: Response) => {
       });
     }
 
-    const suggestions = await agent.getSearchSuggestions(query);
+    const suggestions = await serviceManager.getAgent().getSearchSuggestions(query);
     
     res.json({
       success: true,
@@ -141,7 +154,7 @@ router.post('/suggestions', async (req: Request, res: Response) => {
 // Get Gemini service status
 router.get('/gemini/status', async (req: Request, res: Response) => {
   try {
-    const status = await agent.getGeminiStatus();
+    const status = await serviceManager.getAgent().getGeminiStatus();
     
     res.json({
       success: true,

@@ -1,17 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { ProcessedDocument } from '../models/types';
+import { neo4jManager } from '../database/neo4j';
 import DocumentProcessor from './document-processor';
-import GraphWriter from './graph-writer';
+import GraphService from './graph-service';
 
 export class FileUploadService {
   private documentProcessor: DocumentProcessor;
-  private graphWriter: GraphWriter;
+  private graphService: GraphService;
   private uploadDir: string;
 
   constructor() {
-    this.documentProcessor = new DocumentProcessor();
-    this.graphWriter = new GraphWriter();
+    this.documentProcessor = DocumentProcessor.getInstance();
+    this.graphService = new GraphService();
     this.uploadDir = './uploads';
   }
 
@@ -55,7 +56,7 @@ export class FileUploadService {
 
       // Write to graph database
       console.log(`💾 Starting database write...`);
-      await this.graphWriter.processAndWriteGraphDocuments(documents);
+      await this.graphService.processAndWriteGraphDocuments(documents);
       
       // Clean up temporary files
       await this.cleanupTempFiles(savedFiles);

@@ -1,12 +1,12 @@
 import { AgentMessage, AgentSession, SearchQuery } from '../models/types';
-import LocalSearch from '../search/local-search';
+import { UnifiedSearch } from '../search/unified-search';
 
 export abstract class BaseAgent {
-  protected localSearch: LocalSearch;
+  protected unifiedSearch: UnifiedSearch;
   protected sessions: Map<string, AgentSession> = new Map();
 
   constructor() {
-    this.localSearch = new LocalSearch();
+    this.unifiedSearch = UnifiedSearch.getInstance();
   }
 
   /**
@@ -42,7 +42,7 @@ export abstract class BaseAgent {
    */
   private async smartSearch(message: string): Promise<any[]> {
     // 1. First try original query
-    let results = await this.localSearch.hybridSearch({
+    let results = await this.unifiedSearch.search({
       query: message,
       limit: 5,
     });
@@ -54,7 +54,7 @@ export abstract class BaseAgent {
       
       for (const keyword of keywords) {
         if (keyword.length > 1) { // Ignore single character keywords
-          const keywordResults = await this.localSearch.hybridSearch({
+          const keywordResults = await this.unifiedSearch.search({
             query: keyword,
             limit: 3,
           });
@@ -78,6 +78,20 @@ export abstract class BaseAgent {
 
     console.log(`📊 Smart search found ${uniqueResults.length} results`);
     return uniqueResults;
+  }
+
+  /**
+   * Smart search with existing results (avoid duplicate search)
+   */
+  async smartSearchWithResults(message: string, existingResults?: any[]): Promise<any[]> {
+    // If search results already exist, use them directly
+    if (existingResults && existingResults.length > 0) {
+      console.log(`📊 Using existing search results: ${existingResults.length} results`);
+      return existingResults;
+    }
+
+    // Otherwise perform new search
+    return this.smartSearch(message);
   }
 
   /**
@@ -128,7 +142,7 @@ export abstract class BaseAgent {
   /**
    * Get or create session
    */
-  protected getOrCreateSession(sessionId: string): AgentSession {
+  public getOrCreateSession(sessionId: string): AgentSession {
     if (!this.sessions.has(sessionId)) {
       const session: AgentSession = {
         id: sessionId,
